@@ -4,6 +4,9 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
 <title>Type Garden</title>
+<meta name="description" content="Type words and watch them grow into a garden — with seasons, weather and a command palette.">
+<meta name="theme-color" content="#000000">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%23000'/%3E%3Cpath d='M16 17v12' stroke='%233257FF' stroke-width='2.6' fill='none' stroke-linecap='round'/%3E%3Cpath d='M16 23c-4 0-6-2-7-4 3-1 6 0 7 4z' fill='%233257FF'/%3E%3Ccircle cx='16' cy='12' r='7' fill='%23FF1400'/%3E%3Ccircle cx='16' cy='12' r='3' fill='%23FFB4A8'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
@@ -29,8 +32,10 @@
       <span data-tg="fine">backspace sheds</span><span data-tg="coarse">⌫ sheds</span>
       <span data-tg="fine">enter blows it away</span><span data-tg="coarse">return blows it away</span>
       <span data-tg="fine">sweep the cursor for wind</span>
+      <span data-tg="fine">? for shortcuts</span>
     </div>
     <div id="ctrls">
+      <button class="btn" id="bcmd" title="Commands"><span aria-hidden="true">⌕</span><span id="cmdk"></span></button>
       <button class="btn" id="bpal" title="Next palette (Tab)"><i class="dot"></i></button>
       <button class="btn" id="btune">Tune</button>
       <button class="btn" id="bsnd" title="Sound">♪ off</button>
@@ -71,6 +76,19 @@
       </div>
     </div>
     <div id="stage"><canvas id="pcv" width="1080" height="1080"></canvas></div>
+  </div>
+  <div id="cmd" class="ov" role="dialog" aria-label="Commands">
+    <div class="cmdbox">
+      <input id="cmdi" placeholder="Search commands — palette, season, weather, export…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+      <div id="cmdl" role="listbox"></div>
+      <div class="cmdf"><span>↑↓ move</span><span>↵ run</span><span>esc close</span></div>
+    </div>
+  </div>
+  <div id="keys" class="ov" role="dialog" aria-label="Keyboard shortcuts">
+    <div class="keysbox">
+      <div class="th"><span class="serif" style="font-size:21px;color:#fff">Shortcuts</span><button class="x" id="kclose" aria-label="Close">×</button></div>
+      <div id="keysl"></div>
+    </div>
   </div>
 </div>
 

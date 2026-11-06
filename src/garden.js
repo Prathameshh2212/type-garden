@@ -15,7 +15,9 @@ class Garden {
     this.AUTO = [{ rain: 0.55, snow: 0, leaves: 0 }, { rain: 0, snow: 0, leaves: 0 }, { rain: 0.15, snow: 0, leaves: 0.9 }, { rain: 0, snow: 0.9, leaves: 0 }];
     this.LEAFCOL = ['#C8431E', '#E38B1B', '#B5651D', '#8C3B13', '#D9A21B', '#A83A12'];
     this.cfg = Object.assign({}, this.DEF);
-    try { Object.assign(this.cfg, JSON.parse(localStorage.getItem('tg-cfg') || '{}')); } catch (e) {}
+    let stored = null;
+    try { stored = localStorage.getItem('tg-cfg'); Object.assign(this.cfg, JSON.parse(stored || '{}')); } catch (e) {}
+    if (!stored && window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches) { this.cfg.boil = false; this.cfg.breeze = 0.15; this.cfg.wxAmt = 0.6; }
     this.props = this.cfg;
     this.SENT = String.fromCharCode(0x200b);
     this.SPECIES = ['rose', 'tulip', 'daisy', 'poppy', 'blossom', 'bell'];
@@ -75,6 +77,8 @@ class Garden {
     this.fa = {}; this.mx = null; this.flies = []; this.perch = []; this.gifts = [];
     this.parts = []; this.pollen = []; this.wind = 0; this.gust = 0;
     this.readHash();
+    this.isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '');
+    this.hist = ['']; this.hp = 0; this.cmdOpen = false; this.keysOpen = false; this.cmdHits = []; this.cmdSel = 0;
     // seasons & weather state: sp is the season phase (0 spring … 3 winter), sAmt fades the season grade in and out
     const si = this.SEAS.indexOf(this.cfg.season);
     this.sp = si < 0 ? 0 : si; this.sAmt = this.cfg.season === 'off' ? 0 : 1;
@@ -111,7 +115,7 @@ class Garden {
     const app = this.$('app');
     app.addEventListener('pointerdown', ev => {
       if (this.state.mode !== 'type') return;
-      if (ev.target.closest && ev.target.closest('#tune')) return;
+      if (ev.target.closest && ev.target.closest('#tune,#cmd,#keys')) return;
       const touch = ev.pointerType && ev.pointerType !== 'mouse', onCanvas = ev.target === this.cv;
       if (touch) { if (ev.cancelable && (onCanvas || (ev.target.closest && ev.target.closest('button')))) ev.preventDefault(); }
       else this.inp.focus({ preventScroll: true });
@@ -125,6 +129,13 @@ class Garden {
     this.$('tclose').onclick = () => this.toggleTune(false);
     this.$('bsnd').onclick = () => { this.cfg.sound = !this.cfg.sound; this.save(); if (this.cfg.sound) { this.audio(); this.sfx('space'); } this.ui(); this.syncTune(); this.refocus(); };
     this.$('blink').onclick = () => { this.share(); this.refocus(); };
+    this.$('bcmd').onclick = () => this.toggleCmd(true);
+    this.$('cmdk').textContent = this.isMac ? '\u2318K' : 'Ctrl K';
+    this.$('kclose').onclick = () => this.toggleKeys(false);
+    this.$('cmdi').addEventListener('input', () => { this.cmdSel = 0; this.renderCmds(); });
+    this.$('cmd').addEventListener('pointerdown', ev => { if (ev.target === this.$('cmd')) this.toggleCmd(false); });
+    this.$('keys').addEventListener('pointerdown', ev => { if (ev.target === this.$('keys')) this.toggleKeys(false); });
+    this.buildKeys();
     this.$('treset').onclick = () => { const pal = this.DEF.palette; Object.assign(this.cfg, this.DEF); this.state.palette = pal; this.save(); this.changeFont(); this.ui(); this.syncTune(); };
     this.$('ptext').onchange = e => this.upd({ text: e.target.value });
     this.$('reshuffle').onclick = () => this.upd({ seed: Math.floor(Math.random() * 1e6) });
@@ -140,6 +151,13 @@ class Garden {
     loop();
     if (!this.touch) setTimeout(() => this.inp.focus({ preventScroll: true }), 50);
     if (this.introText) setTimeout(() => this.typeOut(this.introText), 700);
+    else {
+      let last = null; try { last = localStorage.getItem('tg-last'); } catch (e) {}
+      if (last && last.trim()) setTimeout(() => {
+        this.setText(last); this.hist = ['', last]; this.hp = 1;
+        this.toast('Your garden is back \u2014 Enter clears it');
+      }, 500);
+    }
   }
 
   // ---------- share links ----------
@@ -170,6 +188,141 @@ class Garden {
     step();
   }
   toast(msg) { const t = this.$('toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(this._tt); this._tt = setTimeout(() => t.classList.remove('on'), 1800); }
+
+  // ---------- history: undo / redo over the words ----------
+  pushHist(now) {
+    if (this._restoring) return;
+    clearTimeout(this._ht);
+    const commit = () => {
+      const t = this.liveText();
+      if (this.hist[this.hp] === t) return;
+      this.hist = this.hist.slice(0, this.hp + 1);
+      this.hist.push(t);
+      if (this.hist.length > 120) this.hist.shift();
+      this.hp = this.hist.length - 1;
+      this.autosave();
+    };
+    if (now) commit(); else this._ht = setTimeout(commit, 500);
+  }
+  // rebuild the garden for a string, fully grown, with no sound
+  setText(t) {
+    this._restoring = true; this._silent = true;
+    clearTimeout(this._ht);
+    const now = performance.now() - 2600;
+    this.letters = []; this.uid = 1; this.fa = {}; this.parts = []; this.pollen = []; this.flies = []; this.perch = []; this.gifts = [];
+    for (const ch of (t || '').slice(0, 60)) this.add(ch, now);
+    this.layout(true);
+    this._restoring = false; this._silent = false;
+    this.autosave();
+  }
+  undo() {
+    clearTimeout(this._ht);
+    if (this.hp <= 0) { this.toast('Nothing to undo'); return; }
+    this.hp--; this.setText(this.hist[this.hp]); this.toast('Undo');
+  }
+  redo() {
+    if (this.hp >= this.hist.length - 1) { this.toast('Nothing to redo'); return; }
+    this.hp++; this.setText(this.hist[this.hp]); this.toast('Redo');
+  }
+  autosave() { try { localStorage.setItem('tg-last', this.liveText()); } catch (e) {} }
+
+  copyImage() {
+    this.paint(performance.now(), false, 0);
+    if (!navigator.clipboard || typeof ClipboardItem === 'undefined') { this.toast('Clipboard unavailable \u2014 saving PNG'); this.savePNG(); return; }
+    this.cv.toBlob(b => {
+      if (!b) return;
+      navigator.clipboard.write([new ClipboardItem({ 'image/png': b })])
+        .then(() => this.toast('Garden copied to clipboard'), () => this.toast('Copy blocked \u2014 use PNG'));
+    });
+  }
+
+  // ---------- command palette ----------
+  mod(k) { return (this.isMac ? '\u2318' : 'Ctrl ') + k; }
+  buildCmds() {
+    const C = [];
+    const add = (group, label, run, hint, dot) => C.push({ group, label, run, hint: hint || '', dot });
+    add('Action', 'Undo', () => this.undo(), this.mod('Z'));
+    add('Action', 'Redo', () => this.redo(), this.mod('\u21e7Z'));
+    add('Action', 'Clear the garden', () => { this.mark(); this.clearAll(performance.now()); }, 'Enter');
+    add('Action', 'Copy image to clipboard', () => this.copyImage(), this.mod('C'));
+    add('Action', 'Save PNG', () => this.savePNG(), this.mod('S'));
+    add('Action', 'Save SVG', () => this.saveSVG(), this.mod('\u21e7S'));
+    add('Action', 'Copy share link', () => this.share());
+    add('Action', 'Open Tune panel', () => this.toggleTune(true));
+    add('Action', 'Keyboard shortcuts', () => this.toggleKeys(true), '?');
+    add('Action', 'Poster mode', () => { this.$('ptext').value = this.liveText() || this.state.text; this.upd({ mode: 'poster', text: this.liveText() || this.state.text }); });
+    add('Action', 'Type mode', () => this.set({ mode: 'type' }, () => { this.resize(); this.refocus(); }));
+    add('Action', 'Reset all settings', () => this.$('treset').click());
+    this.PAL.forEach((pp, i) => add('Palette', pp[0], () => this.setPalette(i), '', pp[2]));
+    this.SEASONS.forEach(([id, name]) => add('Season', name, () => this.setSeason(id)));
+    this.WEATHERS.forEach(([id, name]) => add('Weather', name, () => { this.cfg.weather = id; this.save(); this.syncTune(); this.toast(name === 'Auto' ? 'Weather follows the season' : name); }));
+    this.FLORA.forEach(([id, name]) => add('Flora', name, () => { this.cfg.flora = id; this.save(); this.syncTune(); this.regrowAll(); }));
+    this.FONTS.forEach(f => add('Typeface', f.name, () => { this.cfg.font = f.id; this.save(); this.changeFont(); this.syncTune(); }));
+    [['boil', 'Hand-drawn boil'], ['pollen', 'Pollen'], ['visitors', 'Butterflies'], ['sound', 'Sound']].forEach(([k, name]) =>
+      add('Toggle', name, () => { this.cfg[k] = !this.cfg[k]; this.save(); if (k === 'sound' && this.cfg.sound) { this.audio(); this.sfx('space'); } this.syncTune(); this.ui(); this.toast(name + (this.cfg[k] ? ' on' : ' off')); }));
+    return C;
+  }
+  fz(q, s) {
+    if (!q) return 1;
+    s = s.toLowerCase();
+    if (s.startsWith(q)) return 1000;
+    const i = s.indexOf(q); if (i >= 0) return 600 - i;
+    let qi = 0, sc = 0;
+    for (let si = 0; si < s.length && qi < q.length; si++) if (s[si] === q[qi]) { qi++; sc++; }
+    return qi === q.length ? sc : 0;
+  }
+  renderCmds() {
+    const q = (this.$('cmdi').value || '').trim().toLowerCase(), list = this.$('cmdl');
+    const hit = this.cmds.map(c => ({ c, s: Math.max(this.fz(q, c.label), this.fz(q, c.group + ' ' + c.label) * 0.7) }))
+      .filter(h => h.s > 0).sort((a, b) => b.s - a.s).slice(0, 40).map(h => h.c);
+    this.cmdHits = hit;
+    if (this.cmdSel >= hit.length) this.cmdSel = 0;
+    if (!hit.length) { list.innerHTML = '<div class="cmdempty">No command matches that</div>'; return; }
+    list.innerHTML = '';
+    hit.forEach((c, i) => {
+      const d = document.createElement('div');
+      d.className = 'ci' + (i === this.cmdSel ? ' on' : ''); d.setAttribute('role', 'option');
+      d.innerHTML = (c.dot ? `<i class="sw2" style="background:${c.dot}"></i>` : '') +
+        `<span class="nm">${c.label}</span>` + (c.hint ? `<span class="g">${c.hint}</span>` : `<span class="g">${c.group}</span>`);
+      d.onmousemove = () => { if (this.cmdSel !== i) { this.cmdSel = i; this.renderCmds(); } };
+      d.onclick = () => this.runCmd(i);
+      list.appendChild(d);
+    });
+    const on = list.querySelector('.ci.on'); if (on && on.scrollIntoView) on.scrollIntoView({ block: 'nearest' });
+  }
+  runCmd(i) {
+    const c = this.cmdHits[i == null ? this.cmdSel : i]; if (!c) return;
+    this.toggleCmd(false);
+    try { c.run(); } catch (e) {}
+  }
+  toggleCmd(on) {
+    this.cmdOpen = on == null ? !this.cmdOpen : on;
+    this.$('cmd').classList.toggle('open', this.cmdOpen);
+    if (this.cmdOpen) {
+      this.cmds = this.buildCmds(); this.cmdSel = 0;
+      const inp = this.$('cmdi'); inp.value = ''; this.renderCmds();
+      setTimeout(() => inp.focus({ preventScroll: true }), 20);
+    } else this.refocus();
+  }
+  toggleKeys(on) {
+    this.keysOpen = on == null ? !this.keysOpen : on;
+    this.$('keys').classList.toggle('open', this.keysOpen);
+    if (!this.keysOpen) this.refocus();
+  }
+  buildKeys() {
+    const rows = [
+      ['h', 'Growing'], ['Grow a letter', 'any key'], ['Cut the stem, add a bloom', 'Space'],
+      ['Shed the last letter', 'Backspace'], ['Blow the garden away', 'Enter'],
+      ['Undo / redo', this.mod('Z') + ' / ' + this.mod('\u21e7Z')],
+      ['h', 'Looking'], ['Commands', this.mod('K')], ['Next palette', 'Tab'], ['Previous palette', '\u21e7Tab'],
+      ['Close a panel', 'Esc'], ['This sheet', '?'],
+      ['h', 'Keeping'], ['Save PNG', this.mod('S')], ['Save SVG', this.mod('\u21e7S')], ['Copy image', this.mod('C')],
+      ['h', 'Pointer'], ['Send a gust', 'sweep the cursor'], ['Call a butterfly', 'click'], ['Plant a flower', 'double-click']
+    ];
+    this.$('keysl').innerHTML = rows.map(([a, b]) => a === 'h'
+      ? `<div class="kh">${b}</div>`
+      : `<div class="kr"><span>${a}</span><b>${b}</b></div>`).join('');
+  }
 
   plant(e) {
     const now = performance.now(), lp = this.lastTap;
@@ -362,7 +515,7 @@ class Garden {
   }
   note(ch) { const P = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21], c = (ch || 'a').toLowerCase().charCodeAt(0); return 293.66 * Math.pow(2, P[c % 10] / 12); }
   sfx(kind, ch, delay) {
-    if (!this.cfg.sound) return;
+    if (!this.cfg.sound || this._silent) return;
     const ac = this.audio(); if (!ac) return;
     const t = ac.currentTime + (delay || 0);
     if (kind === 'letter') { const f = this.note(ch); this.tone(f, t, 0.9, 0.11); this.tone(f * 2, t, 0.3, 0.025, 'triangle'); }
@@ -705,20 +858,39 @@ class Garden {
       if (ch.charCodeAt(0) === 10) this.clearAll(now); else this.add(ch, now);
     }
     if (this.composing) this.iv = cur; else { el.value = S; this.iv = S; }
+    this.pushHist();
   }
   key(e) {
-    if (this.state.mode !== 'type') return;
-    if (e.key === 'Escape' && this.tuneOpen) { this.toggleTune(false); return; }
-    if (e.metaKey || e.ctrlKey || e.altKey) {
-      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === 's') { e.preventDefault(); e.shiftKey ? this.saveSVG() : this.savePNG(); }
+    const cm = e.metaKey || e.ctrlKey, k = (e.key || '').toLowerCase();
+    // the command palette owns the keyboard while it is open
+    if (this.cmdOpen) {
+      if (k === 'escape') { e.preventDefault(); this.toggleCmd(false); }
+      else if (k === 'arrowdown' || (cm && k === 'n')) { e.preventDefault(); this.cmdSel = Math.min(this.cmdHits.length - 1, this.cmdSel + 1); this.renderCmds(); }
+      else if (k === 'arrowup' || (cm && k === 'p')) { e.preventDefault(); this.cmdSel = Math.max(0, this.cmdSel - 1); this.renderCmds(); }
+      else if (k === 'enter') { e.preventDefault(); this.runCmd(); }
+      else if (cm && k === 'k') { e.preventDefault(); this.toggleCmd(false); }
       return;
     }
+    if (this.keysOpen) { if (k === 'escape' || k === '?' || k === 'enter') { e.preventDefault(); this.toggleKeys(false); } return; }
+    if (cm && k === 'k') { e.preventDefault(); this.toggleCmd(true); return; }
+    if (this.state.mode !== 'type') return;
+    if (e.key === 'Escape' && this.tuneOpen) { this.toggleTune(false); return; }
+    if (cm || e.altKey) {
+      if (cm && k === 's') { e.preventDefault(); e.shiftKey ? this.saveSVG() : this.savePNG(); }
+      else if (cm && k === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); }
+      else if (cm && k === 'y') { e.preventDefault(); this.redo(); }
+      else if (cm && k === 'c' && !(window.getSelection && String(window.getSelection()))) { e.preventDefault(); this.copyImage(); }
+      return;
+    }
+    // the hidden capture field is always focused, so only a real visible field blocks '?'
+    const tg = e.target, inField = tg && (tg.tagName === 'TEXTAREA' || (tg.tagName === 'INPUT' && tg.id !== 'inp'));
+    if (e.key === '?' && !inField) { e.preventDefault(); this.toggleKeys(true); return; }
     if (e.target && e.target.tagName === 'BUTTON' && (e.key === 'Enter' || e.key === ' ')) return;
     if (e.target && e.target.tagName === 'INPUT' && e.target.type === 'range') return;
     if (e.key === 'Tab') { e.preventDefault(); this.setPalette((this.state.palette + (e.shiftKey ? this.PAL.length - 1 : 1)) % this.PAL.length); return; }
     const now = performance.now();
-    if (e.key === 'Backspace') { e.preventDefault(); this.mark(); this.wither(now); return; }
-    if (e.key === 'Enter') { e.preventDefault(); this.mark(); this.clearAll(now); return; }
+    if (e.key === 'Backspace') { e.preventDefault(); this.mark(); this.wither(now); this.pushHist(true); return; }
+    if (e.key === 'Enter') { e.preventDefault(); this.mark(); this.clearAll(now); this.pushHist(true); return; }
     if (e.key.length !== 1) return;
     e.preventDefault(); this.mark();
     this.add(e.key, now);
@@ -729,7 +901,7 @@ class Garden {
     if (ch === ' ') {
       if (last && last.ch !== ' ') { last.cut = now; this.genEnd(last, now - last.birth); this.sfx('space'); }
       this.letters.push({ ch: ' ', id: this.uid++, birth: now, els: [] });
-      this.layout(); return;
+      this.layout(); this.pushHist(true); return;
     }
     const same = last && last.ch !== ' ';
     const l = { ch, id: this.uid++, birth: now, tb: now, ws: same ? last.ws : Math.floor(this.rand() * 1e9), wi: same ? last.wi + 1 : 0, prev: same ? last : null };
@@ -739,6 +911,7 @@ class Garden {
     this.sfx('letter', ch);
     const fl = l.els.filter(e => e.t === 'rose');
     if (fl.length) this.sfx('bloom', ch, (Math.min(...fl.map(e => e.d0)) + 380) / this.cfg.speed / 1000);
+    this.pushHist();
   }
 
   // ---------- growth ----------
