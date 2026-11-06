@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover,interactive-widget=resizes-content">
+<title>Type Garden</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bodoni+Moda:wght@800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Abril+Fatface&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:wght@800&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Caveat:wght@700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="/src/styles.css">
+</head>
+<body>
+<div id="app">
+  <canvas id="cv"></canvas>
+  <input id="inp" aria-label="Type to grow a garden" autocapitalize="off" autocomplete="off" autocorrect="off" spellcheck="false">
+  <div id="toast"></div>
+  <div id="modes"></div>
+  <div id="bar">
+    <div id="hints">
+      <span data-tg="fine">type to grow</span><span data-tg="coarse">tap to type</span>
+      <span>space cuts</span>
+      <span data-tg="fine">backspace sheds</span><span data-tg="coarse">⌫ sheds</span>
+      <span data-tg="fine">enter blows it away</span><span data-tg="coarse">return blows it away</span>
+      <span data-tg="fine">sweep the cursor for wind</span>
+    </div>
+    <div id="ctrls">
+      <button class="btn" id="bpal" title="Next palette (Tab)"><i class="dot"></i></button>
+      <button class="btn" id="btune">Tune</button>
+      <button class="btn" id="bsnd" title="Sound">♪ off</button>
+      <button class="btn" id="blink">Link</button>
+      <button class="btn" id="bpng">PNG</button>
+      <button class="btn" id="bsvg">SVG</button>
+    </div>
+  </div>
+  <div id="tune" aria-label="Tune your garden">
+    <div class="th"><span class="serif" style="font-size:21px;color:#fff">Tune your garden</span><button class="x" id="tclose" aria-label="Close">×</button></div>
+    <div class="sec"><div class="lbl">Flora</div><div class="grid4" id="tflora"></div></div>
+    <div class="sec"><div class="lbl">Typeface</div><div class="fonts" id="tfont"></div></div>
+    <div class="sec"><div class="lbl">Palette</div><div class="pals" id="tpal"></div></div>
+    <div class="sec"><div class="lbl">Season</div><div class="seg" id="tseason"></div></div>
+    <div class="sec"><div class="lbl">Weather</div><div class="seg" id="tweather"></div><div id="twx"></div></div>
+    <div class="sec"><div class="lbl">Motion</div><div id="tsl"></div></div>
+    <div class="sec"><div class="lbl">Atmosphere</div><div class="tg" id="ttog"></div></div>
+    <button class="pill" id="treset">Reset to defaults</button>
+  </div>
+  <div id="poster">
+    <div id="panel">
+      <div class="col" style="gap:4px">
+        <div class="serif" style="font-size:26px;color:#fff">Poster</div>
+        <div id="info" style="color:#8C8C8C"></div>
+      </div>
+      <div class="col">
+        <div class="lbl">Words</div>
+        <input id="ptext" spellcheck="false">
+        <button class="pill" id="reshuffle">Regrow garden</button>
+        <div style="color:#6C6C6C">Flora, typeface, palette and season follow Tune in Type mode.</div>
+      </div>
+      <div class="col"><div class="lbl">Motion</div><div id="presets"></div></div>
+      <div class="exp">
+        <div class="lbl">Export · 1080 × 1080 loop</div>
+        <button id="vid"></button>
+        <button id="frm">PNG frames (.zip)</button>
+        <div id="status" style="color:#8C8C8C;min-height:16px"></div>
+      </div>
+    </div>
+    <div id="stage"><canvas id="pcv" width="1080" height="1080"></canvas></div>
+  </div>
+</div>
+
+<script src="/src/garden.js"></script>
+</body>
+</html>
