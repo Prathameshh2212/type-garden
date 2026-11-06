@@ -15,6 +15,8 @@ Type words and they grow into a garden. Plain HTML/CSS/JS drawn on a canvas, wit
 - New palette: append a row to `PAL` (`name, bg, flower, stem, line, type`)
 - New season or weather: `GRADE`, `AUTO`, `weatherFront()`
 - Settings: add a key to `DEF`, then a control in `buildTune()`
+- New command in the ⌘K palette: add a line in `buildCmds()`
+- Icon: `favicon.svg` (black ground, red bloom, blue stem, typing caret)
 
 ## Deploy
 Connected to Vercel through GitHub: every push to `main` deploys to production, and every branch or PR gets a preview URL.
