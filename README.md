@@ -16,6 +16,7 @@ Type words and they grow into a garden. Plain HTML/CSS/JS drawn on a canvas, wit
 - New season or weather: `GRADE`, `AUTO`, `weatherFront()`
 - Settings: add a key to `DEF`, then a control in `buildTune()`
 - New command in the ⌘K palette: add a line in `buildCmds()`
+- New curated look: append to `LOOKS` (name, blurb, palette index, flora, font, season, weather)
 - Icon: `favicon.svg` (black ground, red bloom, blue stem, typing caret)
 
 ## Deploy

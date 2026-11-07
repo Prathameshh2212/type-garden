@@ -38,6 +38,7 @@
     <div id="ctrls">
       <button class="btn" id="bcmd" title="Commands"><span aria-hidden="true">⌕</span><span id="cmdk"></span></button>
       <button class="btn" id="bpal" title="Next palette (Tab)"><i class="dot"></i></button>
+      <button class="btn" id="blooks">Looks</button>
       <button class="btn" id="btune">Tune</button>
       <button class="btn" id="bsnd" title="Sound">♪ off</button>
       <button class="btn" id="blink">Link</button>
@@ -83,6 +84,20 @@
       <input id="cmdi" placeholder="Search commands — palette, season, weather, export…" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
       <div id="cmdl" role="listbox"></div>
       <div class="cmdf"><span>↑↓ move</span><span>↵ run</span><span>esc close</span></div>
+    </div>
+  </div>
+  <div id="looks" class="ov" role="dialog" aria-label="Taste library">
+    <div class="libbox">
+      <div class="th"><span class="serif" style="font-size:21px;color:#fff">Taste library</span><button class="x" id="lclose" aria-label="Close">×</button></div>
+      <div class="sub"><span>Curated looks — palette, flowers, typeface, season and weather, in one click.</span><button class="pill" id="togal">Saved gardens →</button></div>
+      <div class="gal" id="looksl"></div>
+    </div>
+  </div>
+  <div id="gal" class="ov" role="dialog" aria-label="Saved gardens">
+    <div class="libbox">
+      <div class="th"><span class="serif" style="font-size:21px;color:#fff">Saved gardens</span><button class="x" id="gclose" aria-label="Close">×</button></div>
+      <div class="sub"><span>Kept in this browser only.</span><button class="pill" id="gsave">Save this garden</button></div>
+      <div class="gal" id="gall"></div>
     </div>
   </div>
   <div id="keys" class="ov" role="dialog" aria-label="Keyboard shortcuts">

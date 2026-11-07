@@ -13,6 +13,23 @@ class Garden {
     };
     // what each season brings when weather is on Auto: spring showers, still summer, falling leaves, snow
     this.AUTO = [{ rain: 0.55, snow: 0, leaves: 0 }, { rain: 0, snow: 0, leaves: 0 }, { rain: 0.15, snow: 0, leaves: 0.9 }, { rain: 0, snow: 0.9, leaves: 0 }];
+    // curated looks: name, blurb, palette, flora, font, season, weather
+    this.LOOKS = [
+      { n: 'Rose Noir', b: 'Where it began', p: 0, fl: 'rose', ff: 'playfair', s: 'off', w: 'clear' },
+      { n: 'Hanami', b: 'Blossom, pale ground', p: 10, fl: 'blossom', ff: 'instrument', s: 'spring', w: 'clear' },
+      { n: 'Wild Meadow', b: 'Every bloom different', p: 5, fl: 'wild', ff: 'fraunces', s: 'summer', w: 'clear' },
+      { n: 'Harvest', b: 'Ochre, and leaves falling', p: 12, fl: 'poppy', ff: 'abril', s: 'autumn', w: 'leaves' },
+      { n: 'First Frost', b: 'Bluebells under snow', p: 2, fl: 'bell', ff: 'bodoni', s: 'winter', w: 'snow' },
+      { n: 'Monsoon', b: 'Tulips in warm rain', p: 11, fl: 'tulip', ff: 'dmserif', s: 'summer', w: 'rain' },
+      { n: 'Botanical Press', b: 'Daisies on paper', p: 1, fl: 'daisy', ff: 'bodoni', s: 'off', w: 'clear' },
+      { n: 'Night Orchard', b: 'Handwritten in the dark', p: 4, fl: 'bell', ff: 'caveat', s: 'off', w: 'clear' },
+      { n: 'Ink Study', b: 'One colour, all line', p: 13, fl: 'rose', ff: 'bricolage', s: 'off', w: 'clear' },
+      { n: 'Storm Glass', b: 'Greyscale, hard weather', p: 9, fl: 'poppy', ff: 'fraunces', s: 'off', w: 'storm' },
+      { n: 'Lemonade', b: 'Butter yellow, daisies', p: 7, fl: 'daisy', ff: 'caveat', s: 'summer', w: 'clear' },
+      { n: 'Love Letter', b: 'Blush, blossom, soft rain', p: 8, fl: 'blossom', ff: 'instrument', s: 'spring', w: 'rain' },
+      { n: 'Citrus Grove', b: 'Green and orange, bold', p: 3, fl: 'tulip', ff: 'bricolage', s: 'summer', w: 'clear' },
+      { n: 'Turning Year', b: 'The seasons on a loop', p: 0, fl: 'meadow', ff: 'playfair', s: 'cycle', w: 'auto' }
+    ];
     this.LEAFCOL = ['#C8431E', '#E38B1B', '#B5651D', '#8C3B13', '#D9A21B', '#A83A12'];
     this.cfg = Object.assign({}, this.DEF);
     let stored = null;
@@ -78,7 +95,7 @@ class Garden {
     this.parts = []; this.pollen = []; this.wind = 0; this.gust = 0;
     this.readHash();
     this.isMac = /Mac|iPhone|iPad|iPod/.test(navigator.platform || navigator.userAgent || '');
-    this.hist = ['']; this.hp = 0; this.cmdOpen = false; this.keysOpen = false; this.cmdHits = []; this.cmdSel = 0;
+    this.hist = ['']; this.hp = 0; this.cmdOpen = false; this.keysOpen = false; this.looksOpen = false; this.galOpen = false; this.cmdHits = []; this.cmdSel = 0;
     // seasons & weather state: sp is the season phase (0 spring … 3 winter), sAmt fades the season grade in and out
     const si = this.SEAS.indexOf(this.cfg.season);
     this.sp = si < 0 ? 0 : si; this.sAmt = this.cfg.season === 'off' ? 0 : 1;
@@ -115,7 +132,7 @@ class Garden {
     const app = this.$('app');
     app.addEventListener('pointerdown', ev => {
       if (this.state.mode !== 'type') return;
-      if (ev.target.closest && ev.target.closest('#tune,#cmd,#keys')) return;
+      if (ev.target.closest && ev.target.closest('#tune,#cmd,#keys,#looks,#gal')) return;
       const touch = ev.pointerType && ev.pointerType !== 'mouse', onCanvas = ev.target === this.cv;
       if (touch) { if (ev.cancelable && (onCanvas || (ev.target.closest && ev.target.closest('button')))) ev.preventDefault(); }
       else this.inp.focus({ preventScroll: true });
@@ -130,6 +147,13 @@ class Garden {
     this.$('bsnd').onclick = () => { this.cfg.sound = !this.cfg.sound; this.save(); if (this.cfg.sound) { this.audio(); this.sfx('space'); } this.ui(); this.syncTune(); this.refocus(); };
     this.$('blink').onclick = () => { this.share(); this.refocus(); };
     this.$('bcmd').onclick = () => this.toggleCmd(true);
+    this.$('blooks').onclick = () => this.toggleLooks(true);
+    this.$('lclose').onclick = () => this.toggleLooks(false);
+    this.$('gclose').onclick = () => this.toggleGal(false);
+    this.$('togal').onclick = () => this.toggleGal(true);
+    this.$('gsave').onclick = () => this.galSave();
+    this.$('looks').addEventListener('pointerdown', ev => { if (ev.target === this.$('looks')) this.toggleLooks(false); });
+    this.$('gal').addEventListener('pointerdown', ev => { if (ev.target === this.$('gal')) this.toggleGal(false); });
     this.$('cmdk').textContent = this.isMac ? '\u2318K' : 'Ctrl K';
     this.$('kclose').onclick = () => this.toggleKeys(false);
     this.$('cmdi').addEventListener('input', () => { this.cmdSel = 0; this.renderCmds(); });
@@ -249,10 +273,14 @@ class Garden {
     add('Action', 'Save SVG', () => this.saveSVG(), this.mod('\u21e7S'));
     add('Action', 'Copy share link', () => this.share());
     add('Action', 'Open Tune panel', () => this.toggleTune(true));
+    add('Action', 'Taste library', () => this.toggleLooks(true));
+    add('Action', 'Saved gardens', () => this.toggleGal(true));
+    add('Action', 'Save this garden', () => this.galSave(), this.mod('D'));
     add('Action', 'Keyboard shortcuts', () => this.toggleKeys(true), '?');
     add('Action', 'Poster mode', () => { this.$('ptext').value = this.liveText() || this.state.text; this.upd({ mode: 'poster', text: this.liveText() || this.state.text }); });
     add('Action', 'Type mode', () => this.set({ mode: 'type' }, () => { this.resize(); this.refocus(); }));
     add('Action', 'Reset all settings', () => this.$('treset').click());
+    this.LOOKS.forEach(L => add('Look', L.n, () => this.applyLook(L), L.b, this.PAL[L.p][2]));
     this.PAL.forEach((pp, i) => add('Palette', pp[0], () => this.setPalette(i), '', pp[2]));
     this.SEASONS.forEach(([id, name]) => add('Season', name, () => this.setSeason(id)));
     this.WEATHERS.forEach(([id, name]) => add('Weather', name, () => { this.cfg.weather = id; this.save(); this.syncTune(); this.toast(name === 'Auto' ? 'Weather follows the season' : name); }));
@@ -314,14 +342,134 @@ class Garden {
       ['h', 'Growing'], ['Grow a letter', 'any key'], ['Cut the stem, add a bloom', 'Space'],
       ['Shed the last letter', 'Backspace'], ['Blow the garden away', 'Enter'],
       ['Undo / redo', this.mod('Z') + ' / ' + this.mod('\u21e7Z')],
-      ['h', 'Looking'], ['Commands', this.mod('K')], ['Next palette', 'Tab'], ['Previous palette', '\u21e7Tab'],
+      ['h', 'Looking'], ['Commands', this.mod('K')], ['Taste library', 'Looks button'], ['Next palette', 'Tab'], ['Previous palette', '\u21e7Tab'],
       ['Close a panel', 'Esc'], ['This sheet', '?'],
-      ['h', 'Keeping'], ['Save PNG', this.mod('S')], ['Save SVG', this.mod('\u21e7S')], ['Copy image', this.mod('C')],
+      ['h', 'Keeping'], ['Save this garden', this.mod('D')], ['Save PNG', this.mod('S')], ['Save SVG', this.mod('\u21e7S')], ['Copy image', this.mod('C')],
       ['h', 'Pointer'], ['Send a gust', 'sweep the cursor'], ['Call a butterfly', 'click'], ['Plant a flower', 'double-click']
     ];
     this.$('keysl').innerHTML = rows.map(([a, b]) => a === 'h'
       ? `<div class="kh">${b}</div>`
       : `<div class="kr"><span>${a}</span><b>${b}</b></div>`).join('');
+  }
+
+  // ---------- taste library ----------
+  lookColors(L) {
+    const p = this.PAL[L.p], si = this.SEAS.indexOf(L.s);
+    if (si < 0) return { bg: p[1], C: { red: p[2], blue: p[3], line: p[4], text: p[5], vein: p[1] } };
+    const mono = this.toHsl(p[2])[1] < 0.12, sn = this.SEAS[si];
+    const bg = this.grade(p[1], 'bg', sn, 1, mono);
+    return { bg, C: { red: this.grade(p[2], 'red', sn, 1, mono), blue: this.grade(p[3], 'blue', sn, 1, mono), line: this.grade(p[4], 'line', sn, 1, mono), text: p[5], vein: bg } };
+  }
+  // a small still life of a look, drawn with the real flower code
+  miniGarden(c, L) {
+    const g = c.getContext('2d'), B = this.backend(g), W = c.width, H = c.height;
+    const pc = this.lookColors(L), r = this.rng(L.n.length * 977 + L.p * 31 + 7);
+    this.cc = pc.C;
+    g.setTransform(1, 0, 0, 1, 0, 0); g.fillStyle = pc.bg; g.fillRect(0, 0, W, H);
+    const fixed = this.SPECIES.includes(L.fl) ? L.fl : null;
+    for (let i = 0; i < 3; i++) {
+      const x = W * (0.26 + 0.24 * i), y = H * (i % 2 ? 0.54 : 0.4), R = Math.min(W, H) * (0.17 + r() * 0.05);
+      const sp = fixed || this.SPECIES[Math.floor(r() * this.SPECIES.length)];
+      B.stroke([[x, y + R * 0.4], [x - 6 + (r() - 0.5) * 7, y + R * 2], [x + 4, H + 8]], pc.C.blue, 2.4);
+      this.flower(B, x, y, R, sp === 'tulip' || sp === 'bell' ? 0 : 0.18, { sp, ph1: r() * 6.28, ph2: r() * 6.28, turns: 1.9, ang: -Math.PI / 2 }, 4000, null);
+    }
+    // a hint of the weather, so the card shows it
+    const dark = this.lum(pc.bg) < 0.5, w = L.w;
+    if (w === 'snow') { g.fillStyle = dark ? '#F2F7FF' : '#C3D3E6'; for (let i = 0; i < 26; i++) { g.globalAlpha = 0.5 + r() * 0.5; g.beginPath(); g.arc(r() * W, r() * H, 1 + r() * 1.6, 0, 6.2832); g.fill(); } }
+    else if (w === 'rain' || w === 'storm') { g.strokeStyle = dark ? 'rgba(200,222,255,.5)' : 'rgba(60,90,140,.5)'; g.lineWidth = 1; g.beginPath(); for (let i = 0; i < (w === 'storm' ? 40 : 24); i++) { const x = r() * W, y = r() * H; g.moveTo(x, y); g.lineTo(x + 2.5, y + 9); } g.stroke(); }
+    else if (w === 'leaves') { for (let i = 0; i < 9; i++) { g.globalAlpha = 0.85; g.fillStyle = this.LEAFCOL[Math.floor(r() * this.LEAFCOL.length)]; g.save(); g.translate(r() * W, r() * H); g.rotate(r() * 6.28); g.beginPath(); g.ellipse(0, 0, 4.6, 1.9, 0, 0, 6.2832); g.fill(); g.restore(); } }
+    g.globalAlpha = 1;
+  }
+  applyLook(L) {
+    this.state.palette = L.p;
+    this.cfg.flora = L.fl; this.cfg.font = L.ff; this.cfg.season = L.s; this.cfg.weather = L.w;
+    const si = this.SEAS.indexOf(L.s); if (si >= 0) this.sp = si;
+    this._pk = null; this.save(); this.theme(); this.syncTune(); this.drawPreviews();
+    this.changeFont();
+    this.toast(L.n + ' \u2014 ' + L.b.toLowerCase());
+  }
+  renderLooks() {
+    const el = this.$('looksl'); el.innerHTML = '';
+    this.LOOKS.forEach(L => {
+      const b = document.createElement('button'); b.className = 'gc';
+      const on = this.state.palette === L.p && this.cfg.flora === L.fl && this.cfg.font === L.ff && this.cfg.season === L.s && this.cfg.weather === L.w;
+      b.classList.toggle('on', on);
+      const ff = (this.FONTS.find(f => f.id === L.ff) || this.FONTS[0]);
+      b.innerHTML = `<canvas width="340" height="212"></canvas><span class="meta"><span class="nm2" style="font-family:${ff.css.replace(/"/g, "'")},Georgia,serif;font-weight:${ff.w};font-size:15px">${L.n}</span><span class="bl">${L.b}</span></span>`;
+      this.miniGarden(b.querySelector('canvas'), L);
+      b.onclick = () => { this.applyLook(L); this.toggleLooks(false); };
+      el.appendChild(b);
+    });
+  }
+  toggleLooks(on) {
+    this.looksOpen = on == null ? !this.looksOpen : on;
+    this.$('looks').classList.toggle('open', this.looksOpen);
+    if (this.looksOpen) { this.toggleGal(false); this.renderLooks(); } else this.refocus();
+  }
+
+  // ---------- saved gardens ----------
+  galLoad() { try { return JSON.parse(localStorage.getItem('tg-gallery') || '[]'); } catch (e) { return []; } }
+  galStore(a) {
+    for (const list of [a, a.slice(-8), a.slice(-3)]) {
+      try { localStorage.setItem('tg-gallery', JSON.stringify(list)); return true; } catch (e) {}
+    }
+    return false;
+  }
+  galThumb() {
+    const t = document.createElement('canvas'); t.width = 340; t.height = 212;
+    const sw = this.cv.width, sh = this.cv.height, ar = 340 / 212;
+    let cw = sw, ch = sw / ar; if (ch > sh) { ch = sh; cw = sh * ar; }
+    t.getContext('2d').drawImage(this.cv, (sw - cw) / 2, (sh - ch) / 2, cw, ch, 0, 0, 340, 212);
+    return t.toDataURL('image/jpeg', 0.7);
+  }
+  galSave() {
+    const text = this.liveText();
+    if (!text) { this.toast('Grow something first'); return; }
+    this.paint(performance.now(), false, 0);
+    const a = this.galLoad();
+    a.push({ id: 'g' + Date.now(), name: text.slice(0, 40), text, p: this.state.palette, fl: this.cfg.flora,
+      ff: this.cfg.font, s: this.cfg.season, w: this.cfg.weather, at: Date.now(), thumb: this.galThumb() });
+    while (a.length > 18) a.shift();
+    if (this.galStore(a)) { this.toast('Saved to your gardens'); if (this.galOpen) this.renderGal(); }
+    else this.toast('No room left \u2014 delete a saved garden first');
+  }
+  galOpenItem(it) {
+    this.applyLook({ n: it.name, b: 'reopened', p: it.p, fl: it.fl, ff: it.ff, s: it.s, w: it.w });
+    const go = () => this.setText(it.text);
+    if (document.fonts) document.fonts.load(`${this.FW} 100px ${this.F}`).then(go, go); else go();
+    this.hist = ['', it.text]; this.hp = 1;
+    this.toggleGal(false);
+  }
+  renderGal() {
+    const el = this.$('gall'), a = this.galLoad().slice().reverse();
+    if (!a.length) { el.innerHTML = '<div class="galempty">Nothing saved yet. Grow a garden, then press ' + this.mod('D') + ' or the button above.</div>'; return; }
+    el.innerHTML = '';
+    a.forEach(it => {
+      const b = document.createElement('button'); b.className = 'gc';
+      const d = new Date(it.at), when = d.toLocaleDateString(undefined, { day: 'numeric', month: 'short' });
+      const ff = (this.FONTS.find(f => f.id === it.ff) || this.FONTS[0]);
+      const esc = t => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+      b.innerHTML = `<img alt="" src="${esc(it.thumb)}"><span class="meta"><span class="nm2" style="font-family:${ff.css.replace(/"/g, "'")},Georgia,serif;font-weight:${ff.w};font-size:15px">${esc(it.name)}</span><span class="bl">${esc(when)} \u00b7 ${esc(this.PAL[it.p] ? this.PAL[it.p][0] : '')}</span></span>` +
+        `<span class="act"><button data-a="ren" title="Rename">\u270e</button><button data-a="del" title="Delete">\u00d7</button></span>`;
+      b.onclick = ev => {
+        const act = ev.target && ev.target.dataset && ev.target.dataset.a;
+        if (act === 'del') { ev.stopPropagation(); this.galStore(this.galLoad().filter(x => x.id !== it.id)); this.renderGal(); this.toast('Deleted'); return; }
+        if (act === 'ren') {
+          ev.stopPropagation();
+          const nn = prompt('Name this garden', it.name); if (nn == null) return;
+          const all = this.galLoad(); const f = all.find(x => x.id === it.id);
+          if (f) { f.name = nn.slice(0, 40) || f.name; this.galStore(all); this.renderGal(); }
+          return;
+        }
+        this.galOpenItem(it);
+      };
+      el.appendChild(b);
+    });
+  }
+  toggleGal(on) {
+    this.galOpen = on == null ? !this.galOpen : on;
+    this.$('gal').classList.toggle('open', this.galOpen);
+    if (this.galOpen) { this.looksOpen = false; this.$('looks').classList.remove('open'); this.renderGal(); } else this.refocus();
   }
 
   plant(e) {
@@ -341,7 +489,7 @@ class Garden {
     if (this.gifts.length > 14) this.gifts.shift();
   }
   refocus() { if (this.ptype === 'mouse' && this.state.mode === 'type') this.inp.focus({ preventScroll: true }); }
-  setPalette(i) { this.state.palette = i; this.save(); this.ui(); this.syncTune(); this.drawPreviews(); }
+  setPalette(i) { this.state.palette = i; this.save(); this.ui(); this.syncTune(); this.drawPreviews(); if (this.looksOpen) this.renderLooks(); }
 
   // ---------- tune panel ----------
   toggleTune(on) {
@@ -872,6 +1020,11 @@ class Garden {
       return;
     }
     if (this.keysOpen) { if (k === 'escape' || k === '?' || k === 'enter') { e.preventDefault(); this.toggleKeys(false); } return; }
+    if (this.looksOpen || this.galOpen) {
+      if (k === 'escape') { e.preventDefault(); this.toggleLooks(false); this.toggleGal(false); }
+      else if (cm && k === 'd') { e.preventDefault(); this.galSave(); }
+      return;
+    }
     if (cm && k === 'k') { e.preventDefault(); this.toggleCmd(true); return; }
     if (this.state.mode !== 'type') return;
     if (e.key === 'Escape' && this.tuneOpen) { this.toggleTune(false); return; }
@@ -879,6 +1032,7 @@ class Garden {
       if (cm && k === 's') { e.preventDefault(); e.shiftKey ? this.saveSVG() : this.savePNG(); }
       else if (cm && k === 'z') { e.preventDefault(); e.shiftKey ? this.redo() : this.undo(); }
       else if (cm && k === 'y') { e.preventDefault(); this.redo(); }
+      else if (cm && k === 'd') { e.preventDefault(); this.galSave(); }
       else if (cm && k === 'c' && !(window.getSelection && String(window.getSelection()))) { e.preventDefault(); this.copyImage(); }
       return;
     }
